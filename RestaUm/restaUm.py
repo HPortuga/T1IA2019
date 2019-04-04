@@ -2,17 +2,18 @@ class Enum(set):
    def __getattr__(self, name):
       if name in self:
          return name
-      raise AttributeError
 
 DirecaoDoMovimento = Enum(["CIMA", "BAIXO", "ESQUERDA", "DIREITA"])
 
-# as seguintes posicoes nao sao consideradas no tabuleiro
+# As seguintes posicoes nao sao consideradas no tabuleiro
 coordenadasInexistentes = [
    [0,0],[0,1],[0,5],[0,6],
    [1,0],[1,1],[1,5],[1,6],
    [5,0],[5,1],[5,5],[5,6],
    [6,0],[6,1],[6,5],[6,6]
 ]
+
+# Estado inicial do tabuleiro
 estadosDoTabuleiro = [
    [0,0,1,1,1,0,0],
    [0,0,1,1,1,0,0],
@@ -102,10 +103,12 @@ def movimentoCoordenadaInexistente(coordenada):
    if (coordenada in coordenadasInexistentes):
       print "Coordenada inexistente"
       return True
+
    if (coordenada[0] > 6 or coordenada[0] < 0
    or coordenada[1] > 6 or coordenada[1 < 0])
       print "Coordenada inexistente"
       return True
+      
    return False
 
 def imprimirTabuleiro():
