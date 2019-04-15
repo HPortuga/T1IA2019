@@ -2,18 +2,17 @@ class Enum(set):
    def __getattr__(self, name):
       if name in self:
          return name
+      raise AttributeError
 
 DirecaoDoMovimento = Enum(["CIMA", "BAIXO", "ESQUERDA", "DIREITA"])
 
-# As seguintes posicoes nao sao consideradas no tabuleiro
+# as seguintes posicoes nao sao consideradas no tabuleiro
 coordenadasInexistentes = [
    [0,0],[0,1],[0,5],[0,6],
    [1,0],[1,1],[1,5],[1,6],
    [5,0],[5,1],[5,5],[5,6],
    [6,0],[6,1],[6,5],[6,6]
 ]
-
-# Estado inicial do tabuleiro
 estadosDoTabuleiro = [
    [0,0,1,1,1,0,0],
    [0,0,1,1,1,0,0],
@@ -79,7 +78,7 @@ def movimentoValido(origem, destino):
 # Verifica se o destino ja esta ocupado por um '1'
 def movimentoParaPosicaoOcupada(destino):
    if (estadosDoTabuleiro[destino[0]][destino[1]] == 1):
-      print "Posicao Ocupada"
+      print("Posicao Ocupada")
       return True
    return False
 
@@ -95,26 +94,24 @@ def movimentoForaDeAlcance(origem, destino):
    if (abs(ox-dx) == 0 and abs(oy-dy) == 2):
       return False
 
-   print "Movimento fora de alcance"
+   print("Movimento fora de alcance")
    return True
  
 # Verifica se a coordenada esta nas coordenadas inexistentes
 def movimentoCoordenadaInexistente(coordenada):
    if (coordenada in coordenadasInexistentes):
-      print "Coordenada inexistente"
+      print("Coordenada inexistente")
       return True
-
    if (coordenada[0] > 6 or coordenada[0] < 0
-   or coordenada[1] > 6 or coordenada[1 < 0])
-      print "Coordenada inexistente"
+   or coordenada[1] > 6 or coordenada[1] < 0):
+      print("Coordenada inexistente")
       return True
-      
    return False
 
 def imprimirTabuleiro():
-   print "------------------------------"
+   print("------------------------------")
    for estado in estadosDoTabuleiro:
-      print estado
+      print(estado)
 
 # Funcao Main
 if __name__ == '__main__':
