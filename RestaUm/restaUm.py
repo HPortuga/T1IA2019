@@ -1,12 +1,14 @@
+import copy
+import sys
+
 class Enum(set):
    def __getattr__(self, name):
       if name in self:
          return name
-      raise AttributeError
 
 DirecaoDoMovimento = Enum(["CIMA", "BAIXO", "ESQUERDA", "DIREITA"])
 
-# as seguintes posicoes nao sao consideradas no tabuleiro
+# As seguintes posicoes nao sao consideradas no tabuleiro
 coordenadasInexistentes = [
    [0,0],[0,1],[0,5],[0,6],
    [1,0],[1,1],[1,5],[1,6],
@@ -22,45 +24,26 @@ estadosDoTabuleiro = [
    [0,0,1,1,1,0,0],
    [0,0,1,1,1,0,0]
 ]
+estadoInicial = [
+   [0,0,1,1,1,0,0],
+   [0,0,1,1,1,0,0],
+   [1,1,1,1,1,1,1],
+   [1,1,1,0,1,1,1],
+   [1,1,1,1,1,1,1],
+   [0,0,1,1,1,0,0],
+   [0,0,1,1,1,0,0]
+]
 
-# Recebe conjuntos de coordenadas de origem e tenta mover a peca
-# para as coordenadas de destino.
-def moverPecaPara(origem, destino):
-   if (not movimentoValido(origem, destino)):
-      return
-
-   direcaoDoMovimento = identificarDirecaoDoMovimento(origem, destino)
-
-   ox = origem[0]
-   oy = origem[1]
-   dx = destino[0]
-   dy = destino[1]
-   
-   if (direcaoDoMovimento == DirecaoDoMovimento.BAIXO):
-      estadosDoTabuleiro[dx-1][dy] = 0
-   elif (direcaoDoMovimento == DirecaoDoMovimento.ESQUERDA):
-      estadosDoTabuleiro[dx][dy+1] = 0
-   elif (direcaoDoMovimento == DirecaoDoMovimento.CIMA):
-      estadosDoTabuleiro[dx+1][dy] = 0
-   elif (direcaoDoMovimento == DirecaoDoMovimento.DIREITA):
-      estadosDoTabuleiro[dx][dy-1] = 0
-
-   estadosDoTabuleiro[ox][oy] = 0
-   estadosDoTabuleiro[dx][dy] = 1
-   
-   imprimirTabuleiro()
-
-# Identifica para qual direcao o movimento e feito
-def identificarDirecaoDoMovimento(origem, destino):
-   ox = origem[0]
-   oy = origem[1]
-   dx = destino[0]
-   dy = destino[1]
-
-   if (ox < dx and oy == dy): return DirecaoDoMovimento.BAIXO
-   if (ox == dx and oy > dy): return DirecaoDoMovimento.ESQUERDA
-   if (ox > dx and oy == dy): return DirecaoDoMovimento.CIMA
-   if (ox == dx and oy < dy): return DirecaoDoMovimento.DIREITA
+# O estado final possui apenas uma peca no tabuleiro, ou seja, um unico "1".
+#  Se a soma de todos os estados for = 1, e estado final
+def verificarEstadoFinal():
+   soma = 0
+   for linhas in estadosDoTabuleiro:
+      for coluna in linhas:
+         soma += coluna
+      if (soma > 1 ):
+         break
+   return (True if soma == 1 else False)
 
 # Verifica se o movimento partindo da origem para o destino e valido
 def movimentoValido(origem, destino):
@@ -78,7 +61,6 @@ def movimentoValido(origem, destino):
 # Verifica se o destino ja esta ocupado por um '1'
 def movimentoParaPosicaoOcupada(destino):
    if (estadosDoTabuleiro[destino[0]][destino[1]] == 1):
-      print("Posicao Ocupada")
       return True
    return False
 
@@ -94,26 +76,170 @@ def movimentoForaDeAlcance(origem, destino):
    if (abs(ox-dx) == 0 and abs(oy-dy) == 2):
       return False
 
-   print("Movimento fora de alcance")
    return True
  
 # Verifica se a coordenada esta nas coordenadas inexistentes
 def movimentoCoordenadaInexistente(coordenada):
    if (coordenada in coordenadasInexistentes):
-      print("Coordenada inexistente")
       return True
    if (coordenada[0] > 6 or coordenada[0] < 0
-   or coordenada[1] > 6 or coordenada[1] < 0):
-      print("Coordenada inexistente")
+      or coordenada[1] > 6 or coordenada[1] < 0):
       return True
    return False
 
-def imprimirTabuleiro():
-   print("------------------------------")
-   for estado in estadosDoTabuleiro:
+def moverPecaParaBaixo(linha, coluna, estado):
+   if (not movimentoValido([linha,coluna], [linha+2,coluna])):
+      return
+
+   estado[linha][coluna] = 0
+   estado[linha+1][coluna] = 0
+   estado[linha+2][coluna] = 1
+
+   return estado
+
+def moverPecaParaEsquerda(linha, coluna, estado):
+   if (not movimentoValido([linha,coluna], [linha,coluna-2])):
+      return
+
+   estado[linha][coluna] = 0
+   estado[linha][coluna-1] = 0
+   estado[linha][coluna-2] = 1
+
+   return estado
+
+def moverPecaParaCima(linha, coluna, estado):
+   if (not movimentoValido([linha,coluna], [linha-2,coluna])):
+      return
+
+   estado[linha][coluna] = 0
+   estado[linha-1][coluna] = 0
+   estado[linha-2][coluna] = 1
+
+   return estado
+
+def moverPecaParaDireita(linha, coluna, estado):
+   if (not movimentoValido([linha,coluna], [linha,coluna+2])):
+      return
+
+   estado[linha][coluna] = 0
+   estado[linha][coluna+1] = 0
+   estado[linha][coluna+2] = 1
+
+   return estado
+
+idCount = 0
+searchTree = []
+explorados = []
+# Search Tree Node
+class STNode:
+   def __init__(self, paiId, estado, movimento):
+      global idCount
+      self.id = idCount
+      idCount += 1
+      self.paiId = paiId
+      self.estado = estado
+      self.movimento = movimento
+      self.listaDeFilhos = []
+      self.funcaoCusto = 0
+      self.funcaoAvaliacao = 0
+      self.fitness = sys.maxsize
+      self.procurarFilhosPossiveis()
+      self.avaliarNode()
+
+   def __str__(self):
+      string = "======================"
+      string += "\nid=%d" % self.id
+      string += "\npaiId=%d" % self.paiId
+      string += "\nmovimento=%s" % self.movimento
+      string += "\nfitness=%s" % self.fitness
+      string += "\n"
+      for linha in self.estado:
+         string += str(linha)
+         string += "\n"
+      string += "======================"
+
+      return string
+
+   # Heuristicas
+   def calcularFuncaoAvaliacao(self):
+      posOcupadas = 0
+      for linha in self.estado:
+         for coluna in linha:
+            posOcupadas += coluna
+
+      return self.funcaoCusto + posOcupadas
+
+   def avaliarNode(self):
+      pai = None
+      for node in explorados:
+         if (node.id == self.paiId): 
+            pai = node
+      if (pai != None):
+         self.funcaoCusto = pai.funcaoCusto + 1
+         self.funcaoAvaliacao = self.calcularFuncaoAvaliacao()
+         self.fitness = self.funcaoCusto + self.funcaoAvaliacao
+      
+
+   def procurarFilhosPossiveis(self):
+      for linha in range(0,7):
+         for coluna in range(0,7):
+            estado = moverPecaParaBaixo(linha, coluna, copy.deepcopy(self.estado))
+            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha+2, coluna)
+            if (estado): self.listaDeFilhos.append([estado,movimento])
+
+            estado = moverPecaParaEsquerda(linha, coluna, copy.deepcopy(self.estado))
+            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha, coluna-2)
+            if (estado): self.listaDeFilhos.append([estado, movimento])
+
+            estado = moverPecaParaCima(linha, coluna, copy.deepcopy(self.estado))
+            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha-2, coluna)
+            if (estado): self.listaDeFilhos.append([estado, movimento])
+
+            estado = moverPecaParaDireita(linha, coluna, copy.deepcopy(self.estado))
+            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha, coluna+2)
+            if (estado): self.listaDeFilhos.append([estado, movimento])
+      
+
+# with open("saida-resta-um.txt", "a+") as arquivo:
+#    arquivo.write()   
+
+
+menorFitnessGlobal = sys.maxsize
+def encontrarMelhorFitness():
+   global menorFitnessGlobal
+   for node in searchTree:
+      if (node.fitness < menorFitnessGlobal): menorFitnessGlobal = node.fitness
+
+   for node in searchTree:
+      if (node.fitness == menorFitnessGlobal): return node
+
+def explorarNode(node):
+   explorados.append(node)
+   for filho in node.listaDeFilhos:
+      novoNo = STNode(node.id, filho[0], filho[1])
+      searchTree.append(novoNo)
+
+# Algoritmo A*
+def a_star():
+   raiz = STNode(0, estadoInicial, "")
+   searchTree.append(raiz)
+   a = 10
+   while(len(searchTree) > 0):
+      nextBestNode = encontrarMelhorFitness()
+      searchTree.remove(nextBestNode)
+      explorarNode(nextBestNode)
+
+      
+
+   # Explorar raiz
+   for filho in raiz.listaDeFilhos:
+      novoNo = STNode(raiz.id, filho[0], filho[1])
+
+   for estado in searchTree:
       print(estado)
+
+   
 
 # Funcao Main
 if __name__ == '__main__':
-   imprimirTabuleiro()
-   moverPecaPara([3,1], [3,3])
+   a_star()
