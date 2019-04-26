@@ -24,21 +24,13 @@ estadosDoTabuleiro = [
    [0,0,1,1,1,0,0],
    [0,0,1,1,1,0,0]
 ]
-estadoInicial = [
-   [0,0,1,1,1,0,0],
-   [0,0,1,1,1,0,0],
-   [1,1,1,1,1,1,1],
-   [1,1,1,0,1,1,1],
-   [1,1,1,1,1,1,1],
-   [0,0,1,1,1,0,0],
-   [0,0,1,1,1,0,0]
-]
+
 
 # O estado final possui apenas uma peca no tabuleiro, ou seja, um unico "1".
 #  Se a soma de todos os estados for = 1, e estado final
-def verificarEstadoFinal():
+def verificarEstadoFinal(estado):
    soma = 0
-   for linhas in estadosDoTabuleiro:
+   for linhas in estado:
       for coluna in linhas:
          soma += coluna
       if (soma > 1 ):
@@ -46,7 +38,7 @@ def verificarEstadoFinal():
    return (True if soma == 1 else False)
 
 # Verifica se o movimento partindo da origem para o destino e valido
-def movimentoValido(origem, destino):
+def movimentoValido(origem, destino, estado):
    if (movimentoCoordenadaInexistente(origem) 
    or movimentoCoordenadaInexistente(destino)):
       return False
@@ -54,13 +46,17 @@ def movimentoValido(origem, destino):
    if (movimentoForaDeAlcance(origem, destino)):
       return False
 
-   if (movimentoParaPosicaoOcupada(destino)):
+   if (movimentoParaPosicaoOcupada(destino, estado)):
       return False
+
+   if (estado[origem[0]][origem[1]] == 0):
+      return False
+
    return True
 
 # Verifica se o destino ja esta ocupado por um '1'
-def movimentoParaPosicaoOcupada(destino):
-   if (estadosDoTabuleiro[destino[0]][destino[1]] == 1):
+def movimentoParaPosicaoOcupada(destino, estado):
+   if (estado[destino[0]][destino[1]] == 1):
       return True
    return False
 
@@ -88,7 +84,10 @@ def movimentoCoordenadaInexistente(coordenada):
    return False
 
 def moverPecaParaBaixo(linha, coluna, estado):
-   if (not movimentoValido([linha,coluna], [linha+2,coluna])):
+   if (not movimentoValido([linha,coluna], [linha+2,coluna], estado)):
+      return
+
+   if (estado[linha+1][coluna] == 0):
       return
 
    estado[linha][coluna] = 0
@@ -98,8 +97,11 @@ def moverPecaParaBaixo(linha, coluna, estado):
    return estado
 
 def moverPecaParaEsquerda(linha, coluna, estado):
-   if (not movimentoValido([linha,coluna], [linha,coluna-2])):
+   if (not movimentoValido([linha,coluna], [linha,coluna-2], estado)):
       return
+
+   if (estado[linha][coluna-1] == 0):
+      return 
 
    estado[linha][coluna] = 0
    estado[linha][coluna-1] = 0
@@ -108,7 +110,10 @@ def moverPecaParaEsquerda(linha, coluna, estado):
    return estado
 
 def moverPecaParaCima(linha, coluna, estado):
-   if (not movimentoValido([linha,coluna], [linha-2,coluna])):
+   if (not movimentoValido([linha,coluna], [linha-2,coluna], estado)):
+      return
+
+   if (estado[linha-1][coluna] == 0):
       return
 
    estado[linha][coluna] = 0
@@ -118,7 +123,10 @@ def moverPecaParaCima(linha, coluna, estado):
    return estado
 
 def moverPecaParaDireita(linha, coluna, estado):
-   if (not movimentoValido([linha,coluna], [linha,coluna+2])):
+   if (not movimentoValido([linha,coluna], [linha,coluna+2], estado)):
+      return
+
+   if (estado[linha][coluna+1] == 0):
       return
 
    estado[linha][coluna] = 0
@@ -127,9 +135,7 @@ def moverPecaParaDireita(linha, coluna, estado):
 
    return estado
 
-idCount = 0
-searchTree = []
-explorados = []
+
 # Search Tree Node
 class STNode:
    def __init__(self, paiId, estado, movimento):
@@ -142,7 +148,7 @@ class STNode:
       self.listaDeFilhos = []
       self.funcaoCusto = 0
       self.funcaoAvaliacao = 0
-      self.fitness = sys.maxsize
+      self.fitness = -sys.maxsize -1
       self.procurarFilhosPossiveis()
       self.avaliarNode()
 
@@ -162,12 +168,44 @@ class STNode:
 
    # Heuristicas
    def calcularFuncaoAvaliacao(self):
-      posOcupadas = 0
-      for linha in self.estado:
-         for coluna in linha:
-            posOcupadas += coluna
+      ignorarFilhosDiretosDaRaiz = 10 if self.funcaoCusto == 1 else 1
+      preferirNosNaProfundidade30ComFilhos = 10 if self.funcaoCusto < 30 and len(self.listaDeFilhos) < 1 else 1
+      preferirProfundidade = self.funcaoCusto * self.funcaoCusto
 
-      return self.funcaoCusto + posOcupadas
+      numPecasIsoladas = 1
+      for linha in range(0,6):
+         for coluna in range(0,6):
+            if ([linha,coluna] in coordenadasInexistentes):
+               continue
+            
+            if (linha == 0):
+               if (self.estado[linha+1][coluna] == 0
+               and self.estado[linha][coluna-1] == 0
+               and self.estado[linha][coluna+1] == 0):
+                  numPecasIsoladas += 1
+            elif (linha == 6):
+               if (self.estado[linha-1][coluna] == 0
+               and self.estado[linha][coluna-1] == 0
+               and self.estado[linha][coluna+1] == 0):
+                  numPecasIsoladas += 1
+            elif (coluna == 0):
+               if (self.estado[linha-1][coluna] == 0
+               and self.estado[linha+1][coluna] == 0
+               and self.estado[linha][coluna+1] == 0):
+                  numPecasIsoladas += 1
+            elif (coluna == 6):
+               if (self.estado[linha-1][coluna] == 0
+               and self.estado[linha+1][coluna] == 0
+               and self.estado[linha][coluna-1] ==0):
+                  numPecasIsoladas += 1
+            else:
+               if (self.estado[linha-1][coluna] == 0
+               and self.estado[linha+1][coluna] == 0
+               and self.estado[linha][coluna+1] == 0
+               and self.estado[linha][coluna-1] == 0):
+                  numPecasIsoladas += 1
+
+      return (preferirProfundidade * preferirProfundidade)
 
    def avaliarNode(self):
       pai = None
@@ -178,68 +216,82 @@ class STNode:
          self.funcaoCusto = pai.funcaoCusto + 1
          self.funcaoAvaliacao = self.calcularFuncaoAvaliacao()
          self.fitness = self.funcaoCusto + self.funcaoAvaliacao
-      
 
    def procurarFilhosPossiveis(self):
       for linha in range(0,7):
          for coluna in range(0,7):
             estado = moverPecaParaBaixo(linha, coluna, copy.deepcopy(self.estado))
-            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha+2, coluna)
-            if (estado): self.listaDeFilhos.append([estado,movimento])
+            if (estado):
+               movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha+2, coluna)
+               self.listaDeFilhos.append([estado,movimento])
 
             estado = moverPecaParaEsquerda(linha, coluna, copy.deepcopy(self.estado))
-            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha, coluna-2)
-            if (estado): self.listaDeFilhos.append([estado, movimento])
+            if (estado):
+               movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha, coluna-2)
+               self.listaDeFilhos.append([estado, movimento])
 
             estado = moverPecaParaCima(linha, coluna, copy.deepcopy(self.estado))
-            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha-2, coluna)
-            if (estado): self.listaDeFilhos.append([estado, movimento])
+            if (estado):
+               movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha-2, coluna)               
+               self.listaDeFilhos.append([estado, movimento])
 
             estado = moverPecaParaDireita(linha, coluna, copy.deepcopy(self.estado))
-            movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha, coluna+2)
-            if (estado): self.listaDeFilhos.append([estado, movimento])
+            if (estado):
+               movimento = "(%d,%d) - (%d,%d)" % (linha, coluna, linha, coluna+2)               
+               self.listaDeFilhos.append([estado, movimento])
       
 
 # with open("saida-resta-um.txt", "a+") as arquivo:
 #    arquivo.write()   
 
 
-menorFitnessGlobal = sys.maxsize
 def encontrarMelhorFitness():
-   global menorFitnessGlobal
-   for node in searchTree:
-      if (node.fitness < menorFitnessGlobal): menorFitnessGlobal = node.fitness
+   if (len(searchTree) == 0):
+      return
 
+   melhorFitness = -sys.maxsize -1
+   melhorNo = None
    for node in searchTree:
-      if (node.fitness == menorFitnessGlobal): return node
+      if (node.fitness > melhorFitness):
+         melhorFitness = node.fitness
+         melhorNo = node
+   return melhorNo
 
 def explorarNode(node):
-   explorados.append(node)
+   print("Node id = %d; profundidade = %d" % (node.id,node.funcaoCusto))
+
    for filho in node.listaDeFilhos:
       novoNo = STNode(node.id, filho[0], filho[1])
-      searchTree.append(novoNo)
+      if (novoNo.funcaoCusto > 30 and verificarEstadoFinal(novoNo.estado)):
+         solucoes.append(novoNo)
+      else:
+         searchTree.append(novoNo)
 
+idCount = 0
+searchTree = []
+explorados = []
+solucoes = []
 # Algoritmo A*
-def a_star():
-   raiz = STNode(0, estadoInicial, "")
+def a_star(raiz):
    searchTree.append(raiz)
-   a = 10
-   while(len(searchTree) > 0):
-      nextBestNode = encontrarMelhorFitness()
+   nextBestNode = raiz
+
+   while (len(searchTree) > 0):
       searchTree.remove(nextBestNode)
+      explorados.append(nextBestNode)
       explorarNode(nextBestNode)
-
-      
-
-   # Explorar raiz
-   for filho in raiz.listaDeFilhos:
-      novoNo = STNode(raiz.id, filho[0], filho[1])
-
-   for estado in searchTree:
-      print(estado)
-
-   
+      nextBestNode = encontrarMelhorFitness()
 
 # Funcao Main
 if __name__ == '__main__':
-   a_star()
+   estadoInicial = [
+   [0,0,1,1,1,0,0],
+   [0,0,1,1,1,0,0],
+   [1,1,1,1,1,1,1],
+   [1,1,1,0,1,1,1],
+   [1,1,1,1,1,1,1],
+   [0,0,1,1,1,0,0],
+   [0,0,1,1,1,0,0]]
+
+   raiz = STNode(0, estadoInicial, "")
+   a_star(raiz)
