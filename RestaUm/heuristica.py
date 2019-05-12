@@ -6,9 +6,9 @@ def calcularHeuristica(node):
    numPecas, coordenadasDasPecas = contarPecas(node.estado)
    unsPresosNosCantos = contarUnsPresos(node.estado)
    distanciaMediaManhattan = calcularDistanciaManhattan(node.estado, coordenadasDasPecas) / numPecas
-   fatorDeProfundidade = 1024 - (node.custo * node.custo)
+   # fatorDeProfundidade = 1024 - (node.custo * node.custo)
 
-   return  fatorDeProfundidade + distanciaMediaManhattan + (pow(unsPresosNosCantos,pow(2,unsPresosNosCantos)))
+   return  distanciaMediaManhattan + (pow(unsPresosNosCantos,pow(2,unsPresosNosCantos)))
 
 # Calcula a soma da distancia de cada peca ate todas as outras pecas no tabuleiro
 def calcularDistanciaManhattan(estado, coordenadasDasPecas):
